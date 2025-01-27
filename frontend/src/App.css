@@ -1,0 +1,167 @@
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+:where(.ant-layout) {
+  background: #f5f5f5;
+}
+
+:where(.ant-layout-header) {
+  line-height: 64px;
+  height: 64px;
+}
+
+:where(.ant-layout-sider) {
+  border-right: 1px solid #f0f0f0;
+}
+
+:where(.ant-menu-inline) {
+  border-right: none;
+}
+
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-content {
+  padding: 24px;
+  background: #f0f2f5;
+}
+
+.mindmap-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.document-upload {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.text-input {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.text-input .ant-btn {
+  align-self: flex-start;
+}
+
+.ant-tabs-content {
+  padding-top: 16px;
+}
+
+.page-header {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.logo-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 16px;
+  max-width: 600px;
+  margin: 0 auto !important;
+}
+
+.main-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.main-content .ant-tabs-nav {
+  margin-bottom: 24px;
+}
+
+.main-content .ant-tabs-tab {
+  padding: 12px 24px;
+  font-size: 15px;
+}
+
+.text-input {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.text-input .ant-input {
+  border-radius: 8px;
+  font-size: 16px;
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
+}
+
+.text-input .ant-btn {
+  height: 48px;
+  font-size: 16px;
+  padding: 0 32px;
+  border-radius: 24px;
+  margin: 0 auto;
+  display: block;
+}
+
+.mindmap-result {
+  margin-top: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mindmap-result .ant-card-body {
+  flex: 1;
+  padding: 0;
+}
+
+/* 确保 ReactFlow 容器填满父元素 */
+.react-flow {
+  flex: 1;
+}
+
+/* 优化连接线样式 */
+.react-flow__edge-path {
+  stroke-width: 2;
+  stroke: #888;
+}
+
+/* 优化节点样式 */
+.react-flow__node {
+  transition: all 0.2s ease;
+}
+
+.react-flow__node:hover {
+  transform: scale(1.02);
+}
+
+/* 自定义主题色 */
+:root {
+  --primary-color: #7c3aed;
+}
+
+.ant-btn-primary {
+  background: var(--primary-color);
+}
+
+.ant-tabs-ink-bar {
+  background: var(--primary-color);
+}
+
+.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--primary-color);
+} 
