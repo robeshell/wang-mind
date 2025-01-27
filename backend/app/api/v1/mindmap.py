@@ -44,24 +44,18 @@ async def create_mindmap_from_text(request: MindMapRequest) -> MindMapResponse:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/from-document/stream")
-async def create_mindmap_from_document_stream(
-    request: DocumentAnalysisRequest
-) -> StreamingResponse:
-    """从文档生成思维导图（流式响应）"""
-    try:
-        processor = MindMapProcessor(get_llm())
-        return StreamingResponse(
-            processor.process_document_stream(request),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"
-            }
-        )
-    except Exception as e:
-        logger.error(f"处理文档失败: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+async def create_mindmap_from_document_stream(request: DocumentAnalysisRequest):
+    processor = MindMapProcessor(get_llm())
+    
+    return StreamingResponse(
+        processor.process_document_stream(request),
+        media_type="text/event-stream",
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'  # 禁用 Nginx 缓冲
+        }
+    )
 
 @router.get("/from-document/stream")
 async def create_mindmap_from_document_stream_get(

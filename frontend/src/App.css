@@ -36,8 +36,46 @@
 
 .document-upload {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.upload-area {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.upload-status {
+  margin-top: 16px;
+}
+
+.upload-status .logs {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 13px;
+  color: #374151;
+}
+
+.log-item {
+  padding: 4px 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.log-item:last-child {
+  border-bottom: none;
+}
+
+.mindmap-container {
+  margin-top: 20px;
+  height: 600px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
 }
 
 .text-input {
@@ -63,8 +101,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 24px;
+  position: relative;
+  min-width: 600px;
 }
 
 .logo-icon {
@@ -72,17 +112,56 @@
   height: 48px;
 }
 
+.eye-icon {
+  width: 40px;
+  height: 40px;
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-right: 40px;
+}
+
+.title-group h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.2;
+  position: relative;
+  z-index: 2;
+}
+
+.title-group h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  color: #4B5563;
+  position: relative;
+  z-index: 2;
+}
+
 .subtitle {
-  color: #666;
+  color: #6B7280;
   font-size: 16px;
   max-width: 600px;
   margin: 0 auto !important;
+  line-height: 1.6;
 }
 
 .main-content {
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  padding: 24px;
 }
 
 .main-content .ant-tabs-nav {
@@ -151,7 +230,7 @@
 
 /* 自定义主题色 */
 :root {
-  --primary-color: #7c3aed;
+  --primary-color: #DC2626;
 }
 
 .ant-btn-primary {
@@ -164,4 +243,30 @@
 
 .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
   color: var(--primary-color);
+}
+
+.app {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* 调整实时生成的思维导图区域大小 */
+.realtime-mindmap {
+  margin-top: 20px;
+  height: 600px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* 调整上传区域在生成时的样式 */
+.upload-progress {
+  margin-top: 20px;
+}
+
+.upload-progress .logs {
+  margin: 16px 0;
+  max-height: 100px;
+  overflow-y: auto;
 } 

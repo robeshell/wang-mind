@@ -1,0 +1,85 @@
+.markdown-mindmap {
+  width: 100%;
+  height: 600px;
+  position: relative;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.markdown-mindmap svg {
+  width: 100%;
+  height: 100%;
+}
+
+.link {
+  fill: none;
+  stroke-width: 1.5px;
+  transition: all 0.3s;
+  opacity: 0.6;
+}
+
+.link-level-0 {
+  stroke: #4338ca;
+  stroke-width: 2px;
+  opacity: 0.8;
+}
+
+.link-level-1 {
+  stroke: #6366f1;
+}
+
+.link-level-2 {
+  stroke: #818cf8;
+}
+
+.node-bg {
+  fill: white;
+  stroke-width: 1.5px;
+  transition: all 0.3s;
+}
+
+.node-level-0 .node-bg {
+  fill: #4338ca;
+  stroke: #4338ca;
+}
+
+.node-level-1 .node-bg {
+  fill: #eef2ff;
+  stroke: #6366f1;
+}
+
+.node-level-2 .node-bg {
+  fill: white;
+  stroke: #818cf8;
+}
+
+.node text {
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  fill: #1f2937;
+  transition: all 0.3s;
+  pointer-events: none;
+}
+
+.node-level-0 text {
+  fill: white;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.node:hover .node-bg {
+  stroke: #4338ca;
+  stroke-width: 2px;
+  filter: drop-shadow(0 4px 6px rgba(67, 56, 202, 0.1));
+}
+
+.node:hover text {
+  font-weight: 500;
+}
+
+.node:hover + .link,
+.node:hover ~ .link {
+  opacity: 1;
+  stroke-width: 2px;
+} 

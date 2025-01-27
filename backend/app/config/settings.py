@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4-1106-preview"  # 使用 GPT-4
     
     # LangChain配置
-    CHUNK_SIZE: int = 3000  # 默认分块大小
-    CHUNK_OVERLAP: int = 200  # 默认重叠大小
+    CHUNK_SIZE: int = 12000  # 更大的块大小
+    CHUNK_OVERLAP: int = 200  # 更小的重叠度
     TEMPERATURE: float = 0.7  # 默认温度
     
     # 场景温度配置
@@ -57,15 +57,29 @@ class Settings(BaseSettings):
     MAX_MINDMAP_DEPTH: int = 3  # 思维导图最大深度
     
     # 缓存配置
-    CACHE_TTL: int = 3600  # 缓存过期时间(秒)
-    CACHE_MAX_SIZE: int = 100  # 缓存最大条目数
+    CACHE_EXPIRE_TIME: int = 3600  # 缓存过期时间（秒）
+    MAX_CACHE_ITEMS: int = 1000  # 最大缓存条目数
     
     # 并发配置
-    MAX_CONCURRENT_REQUESTS: int = 5  # 最大并发请求数
+    MAX_CONCURRENT_REQUESTS: int = 3  # 并发限制
+    MAX_WORKERS: int = 5  # 最大工作线程数
+    CHUNK_BATCH_SIZE: int = 3  # 批处理大小
     
     # 文本处理配置
     MAX_INPUT_TOKENS: int = 128000  # GPT-4 最大输入长度限制
     CHINESE_CHARS_PER_TOKEN: float = 0.7  # 中文字符到 token 的估算比例（GPT-4）
+    
+    # LLM 生成参数
+    LLM_TEMPERATURE: float = 0.6  # 降低温度以增加专业性
+    LLM_PRESENCE_PENALTY: float = 0.3  # 增加惩罚以避免重复
+    LLM_FREQUENCY_PENALTY: float = 0.3  # 进一步鼓励使用专业术语
+    LLM_TOP_P: float = 0.7  # 降低采样范围以增加确定性
+    LLM_MAX_TOKENS: int = 4000  # 进一步增加长度限制
+    
+    # 文本处理参数
+    TEXT_HEAD_RATIO: float = 0.8  # 增加前文本的比例
+    TEXT_TAIL_RATIO: float = 0.2  # 减少后文本的比例
+    CACHE_KEY_LENGTH: int = 1000  # 缓存键的文本长度
     
     model_config = {
         "env_file": ".env",
