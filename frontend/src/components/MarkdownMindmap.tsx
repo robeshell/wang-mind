@@ -1,231 +1,292 @@
-import React, { useEffect, useRef } from "react";
-import * as d3 from "d3";
-import "./MarkdownMindmap.css"; // 我们待会儿创建这个文件
+import React, { useEffect, useRef, useMemo, useCallback } from "react";
+import G6 from '@antv/g6';
 
 interface MarkdownMindmapProps {
   markdown: string;
+  onRootNodeRendered?: (rootContent: string) => void;
 }
 
 interface MindMapNode {
-  name: string;
+  id: string;
+  label: string;
   children?: MindMapNode[];
+  type?: string;
+  direction?: 'left' | 'right';
+  color?: string;
+  hover?: boolean;
 }
 
-const MarkdownMindmap: React.FC<MarkdownMindmapProps> = ({ markdown }) => {
-  const svgRef = useRef<SVGSVGElement>(null);
+const colorArr = [
+  '#5B8FF9', '#5AD8A6', '#5D7092', '#F6BD16', '#6F5EF9',
+  '#6DC8EC', '#1E9493', '#FF99C3', '#FF9845', '#945FB9'
+];
+
+// 将颜色分配逻辑移到组件外部
+const getColorByLevel = (level: number) => {
+  if (level === 0) return '#096dd9';
+  if (level === 1) return colorArr[0];
+  return colorArr[level % colorArr.length];
+};
+
+const MarkdownMindmap: React.FC<MarkdownMindmapProps> = React.memo(({ 
+  markdown,
+  onRootNodeRendered
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown>>();
-  const transformRef = useRef<d3.ZoomTransform>();
+  const graphRef = useRef<any>(null);
 
-  const parseMarkdownToTree = (markdown: string): MindMapNode => {
-    // 解码 Unicode 转义序列
-    const decodedMarkdown = markdown.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
-    );
+  // 修改 transformData，使用固定的颜色分配
+  const transformData = useCallback((data: MindMapNode, level = 0): MindMapNode => {
+    const node = { ...data };
+    
+    switch (level) {
+      case 0:
+        node.type = 'dice-mind-map-root';
+        break;
+      case 1:
+        node.type = 'dice-mind-map-sub';
+        node.direction = 'right';
+        break;
+      default:
+        node.type = 'dice-mind-map-leaf';
+        node.direction = 'right';
+    }
 
-    const lines = decodedMarkdown.split("\n").filter((line) => line.trim());
-    const root: MindMapNode = { name: "Root", children: [] };
-    let currentLevel: Record<number, MindMapNode> = { 1: root };
+    node.hover = false;
+    node.color = getColorByLevel(level);
 
-    lines.forEach((line) => {
-      const match = line.match(/^(#+)\s+(.+?)(?:\uff08(.+?)\uff09)?$/);
-      if (match) {
-        const level = match[1].length;
-        // 如果有括号内的内容，将其作为标签添加到主标题后
-        const name = match[3] ? `${match[2]}（${match[3]}）` : match[2];
-        const node = { name, children: [] };
+    if (data.children) {
+      node.children = data.children.map(child => 
+        transformData(child, level + 1)
+      );
+    }
 
-        if (!currentLevel[level - 1]) {
-          currentLevel[level - 1] = root;
+    return node;
+  }, []); // 移除不必要的依赖
+
+  // 添加缓存比较函数
+  const memoizedData = useMemo(() => {
+    if (!markdown.trim()) return null;
+    return transformData(parseMarkdown(markdown), 0);
+  }, [markdown]); // 只依赖于 markdown
+
+  // 初始化图形
+  useEffect(() => {
+    if (!containerRef.current || !memoizedData) return;
+    
+    // 检查数据变化
+    if (graphRef.current) {
+      try {
+        const currentData = graphRef.current.save();
+        if (currentData && currentData.nodes && 
+            JSON.stringify(currentData.nodes) === JSON.stringify(memoizedData)) {
+          return;
         }
+      } catch (error) {
+        console.log('Error comparing data:', error);
+      }
+    }
 
-        currentLevel[level - 1].children =
-          currentLevel[level - 1].children || [];
-        currentLevel[level - 1].children.push(node);
-        currentLevel[level] = node;
-      } else if (line.startsWith("-")) {
-        // 处理列表项
-        const name = line.slice(2).trim();
-        const lastLevel = Math.max(...Object.keys(currentLevel).map(Number));
-        const parent = currentLevel[lastLevel];
-        if (parent) {
-          parent.children = parent.children || [];
-          parent.children.push({ name, children: [] });
+    // 注册节点和行为
+    registerNodes();
+    registerBehaviors();
+
+    const width = containerRef.current.scrollWidth;
+    const height = containerRef.current.scrollHeight || 600;
+
+    // 销毁旧的图形实例
+    if (graphRef.current) {
+      graphRef.current.destroy();
+    }
+
+    const graph = new G6.TreeGraph({
+      container: containerRef.current,
+      width,
+      height,
+      fitView: true,
+      fitViewPadding: [20, 40],
+      layout: {
+        type: 'mindmap',
+        direction: 'LR',
+        getHeight: () => 16,
+        getWidth: (node) => {
+          const fontSize = node.level === 0 ? 16 : 12;
+          const padding = node.level === 0 ? 24 : 12;
+          return G6.Util.getTextSize(node.label, fontSize)[0] + padding;
+        },
+        getVGap: () => 20,
+        getHGap: () => 80,
+        getSide: (node) => {
+          return node.data.direction || 'right';
+        },
+        begin: [50, height / 2],
+        nodesep: 50,
+        ranksep: 80,
+        radial: false,
+        strictRadial: false,
+        preventOverlap: true,
+        nodeSize: 20,
+        workerEnabled: false
+      },
+      defaultEdge: {
+        type: 'cubic-horizontal',
+        style: {
+          lineWidth: 2,
+          stroke: '#A3B1BF'
         }
+      },
+      modes: {
+        default: ['drag-canvas', 'zoom-canvas', 'dice-mindmap']
+      },
+      minZoom: 0.5,
+      animate: false,  // 初始化时禁用动画
+      defaultNode: {
+        anchorPoints: [[0, 0.5], [1, 0.5]]
       }
     });
 
-    return root.children?.[0] || root;
-  };
-
-  useEffect(() => {
-    if (!svgRef.current || !containerRef.current) return;
-
-    const container = containerRef.current;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    const data = parseMarkdownToTree(markdown);
-
-    // 清除旧的内容，但保持缩放状态
-    const svg = d3.select(svgRef.current);
-
-    // 只在第一次初始化时设置 SVG 属性
-    if (!svg.attr("width")) {
-      svg
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", [0, 0, width, height]);
+    graphRef.current = graph;
+    graph.data(memoizedData);
+    
+    try {
+      graph.render();
+      // 渲染完成后启用动画
+      setTimeout(() => {
+        if (graph && !graph.destroyed) {
+          graph.set('animate', true);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Error rendering graph:', error);
     }
 
-    svg.selectAll("g").remove();
-
-    const g = svg
-      .append("g")
-      .attr(
-        "transform",
-        transformRef.current?.toString() ||
-          `translate(${width / 2},${height / 2})`
-      );
-
-    // 创建水平布局的树
-    const treeLayout = d3
-      .tree<MindMapNode>()
-      .size([height - 120, width / 2 - 200])
-      .nodeSize([80, 280]);
-
-    const root = d3.hierarchy(data);
-    treeLayout(root);
-
-    // 创建曲线生成器
-    const diagonal = d3
-      .linkHorizontal<any, any>()
-      .x((d) => d.y)
-      .y((d) => d.x);
-
-    // 绘制连接线
-    g.selectAll(".link")
-      .data(root.links())
-      .join("path")
-      .attr("class", (d) => `link link-level-${d.source.depth}`)
-      .attr("d", diagonal);
-
-    // 创建节点组
-    const node = g
-      .selectAll(".node")
-      .data(root.descendants())
-      .join("g")
-      .attr("class", (d) => `node node-level-${d.depth}`)
-      .attr("transform", (d) => `translate(${d.y},${d.x})`);
-
-    // 添加节点背景
-    node
-      .append("rect")
-      .attr("class", "node-bg")
-      .attr("rx", 6)
-      .attr("ry", 6)
-      .attr("x", -100)
-      .attr("y", -20)
-      .attr("width", 200)
-      .attr("height", 40);
-
-    // 添加节点文本
-    node
-      .append("text")
-      .attr("dy", "0.3em")
-      .attr("text-anchor", "middle")
-      .text((d) => d.data.name)
-      .each(function () {
-        // 文本自动换行
-        const text = d3.select(this);
-        const words = text.text().split(/(?<=[\u4e00-\u9fa5])|(?<=\s)/g);
-        const lineHeight = 1.2;
-        const maxWidth = 180;
-
-        let line: string[] = [];
-        let lineNumber = 0;
-        const tspan = text.text(null).append("tspan").attr("x", 0).attr("y", 0);
-
-        words.forEach((word) => {
-          line.push(word);
-          tspan.text(line.join(""));
-          if ((tspan.node()?.getComputedTextLength() || 0) > maxWidth) {
-            line.pop();
-            if (line.length) {
-              tspan.text(line.join(""));
-              line = [word];
-              lineNumber++;
-              text
-                .append("tspan")
-                .attr("x", 0)
-                .attr("y", 0)
-                .attr("dy", `${lineHeight}em`)
-                .text(word);
-            }
-          }
-        });
-
-        // 根据文本行数动态调整节点大小
-        const parent = d3.select((this as Element).parentNode);
-        const rect = parent.select("rect");
-        const numLines = text.selectAll("tspan").size();
-        const textHeight = numLines * 16 * lineHeight;
-        const rectHeight = Math.max(40, textHeight + 16);
-        const rectWidth = Math.max(200, maxWidth + 32);
-
-        rect
-          .attr("x", -rectWidth / 2)
-          .attr("y", -rectHeight / 2)
-          .attr("width", rectWidth)
-          .attr("height", rectHeight);
-
-        // 调整文本垂直居中
-        const totalHeight = numLines * lineHeight * 16;
-        text.attr("transform", `translate(0,${-totalHeight / 2 + 16})`);
-      });
-
-    // 只在第一次创建缩放行为
-    if (!zoomRef.current) {
-      zoomRef.current = d3
-        .zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.2, 3]) // 调整缩放范围
-        .on("zoom", (event) => {
-          transformRef.current = event.transform;
-          g.attr("transform", event.transform);
-        });
-
-      svg.call(zoomRef.current).on("dblclick.zoom", null); // 禁用双击缩放
-    }
-
-    // 自动调整缩放以适应内容
-    const bounds = g.node()?.getBBox();
-    if (bounds) {
-      const scale =
-        Math.min((width - 80) / bounds.width, (height - 80) / bounds.height) *
-        0.95;
-
-      // 只在第一次或内容完全改变时重置视图
-      if (!transformRef.current || markdown.length <= 10) {
-        const transform = d3.zoomIdentity
-          .translate(
-            width / 2 - (bounds.x + bounds.width / 2) * scale,
-            height / 2 - (bounds.y + bounds.height / 2) * scale
-          )
-          .scale(scale);
-
-        svg
-          .transition()
-          .duration(500)
-          .call(zoomRef.current!.transform, transform);
-        transformRef.current = transform;
+    return () => {
+      if (graphRef.current && !graphRef.current.destroyed) {
+        graphRef.current.destroy();
       }
-    }
-  }, [markdown]);
+    };
+  }, [memoizedData]);
 
   return (
-    <div ref={containerRef} className="markdown-mindmap">
-      <svg ref={svgRef} />
-    </div>
+    <div ref={containerRef} className="mindmap-container" style={{ width: '100%', height: '600px' }} />
   );
-};
+});
+
+MarkdownMindmap.displayName = 'MarkdownMindmap';
 
 export default MarkdownMindmap;
+
+// 将 markdown 解析逻辑提取到单独的函数
+function parseMarkdown(markdown: string): MindMapNode {
+  const lines = markdown.split('\n').filter(line => line.trim());
+  const root: MindMapNode = { 
+    id: 'root', 
+    label: '', 
+    children: [] 
+  };
+  
+  const levelNodes: Record<number, MindMapNode> = {};
+  
+  lines.forEach((line, index) => {
+    const match = line.match(/^(#+)\s+(.+)$/);
+    if (match) {
+      const level = match[1].length;
+      const label = match[2].trim();
+      
+      const node: MindMapNode = {
+        id: `node-${index}`,
+        label,
+        children: []
+      };
+
+      if (level === 1) {
+        root.label = label;
+        root.id = `node-${index}`;
+        levelNodes[1] = root;
+      } else {
+        const parentLevel = level - 1;
+        const parentNode = levelNodes[parentLevel];
+        
+        if (parentNode) {
+          parentNode.children = parentNode.children || [];
+          parentNode.children.push(node);
+          levelNodes[level] = node;
+        }
+      }
+    }
+  });
+
+  return root;
+}
+
+// 注册节点和行为的函数定义
+function registerNodes() {
+  const { Util } = G6;
+  
+  G6.registerNode('dice-mind-map-root', {
+    jsx: (cfg) => {
+      const width = Util.getTextSize(cfg.label, 16)[0] + 24;
+      const stroke = cfg.style.stroke || '#096dd9';
+
+      return `
+      <group>
+        <rect draggable="true" style={{width: ${width}, height: 40, stroke: ${stroke}, radius: 4, fill: '#fff', shadowColor: '#ccc', shadowBlur: 10}} keyshape>
+          <text style={{ fontSize: 16, marginLeft: 12, marginTop: 12 }}>${cfg.label}</text>
+        </rect>
+      </group>
+    `;
+    },
+    getAnchorPoints() {
+      return [
+        [0, 0.5],
+        [1, 0.5],
+      ];
+    },
+  });
+
+  G6.registerNode('dice-mind-map-sub', {
+    jsx: (cfg) => {
+      const width = Util.getTextSize(cfg.label, 14)[0] + 24;
+      const color = cfg.color || cfg.style.stroke;
+
+      return `
+      <group>
+        <rect draggable="true" style={{width: ${width}, height: 35, fill: '#fff', stroke: ${color}, radius: 4}} keyshape>
+          <text style={{ fontSize: 14, marginLeft: 12, marginTop: 10 }}>${cfg.label}</text>
+        </rect>
+      </group>
+    `;
+    },
+    getAnchorPoints() {
+      return [
+        [0, 0.5],
+        [1, 0.5],
+      ];
+    },
+  });
+
+  G6.registerNode('dice-mind-map-leaf', {
+    jsx: (cfg) => {
+      const width = Util.getTextSize(cfg.label, 12)[0] + 24;
+      const color = cfg.color || cfg.style.stroke;
+
+      return `
+      <group>
+        <rect draggable="true" style={{width: ${width}, height: 30, fill: '#fff', stroke: ${color}, radius: 4}} keyshape>
+          <text style={{ fontSize: 12, marginLeft: 12, marginTop: 8 }}>${cfg.label}</text>
+        </rect>
+      </group>
+    `;
+    },
+    getAnchorPoints() {
+      return [
+        [0, 0.5],
+        [1, 0.5],
+      ];
+    },
+  });
+}
+
+function registerBehaviors() {
+  // ... 这里是您提供的行为注册代码
+}

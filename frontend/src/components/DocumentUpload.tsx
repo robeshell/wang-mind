@@ -23,7 +23,6 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   onMindMapGenerated,
 }) => {
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
   const [generatingContent, setGeneratingContent] = useState<string>("");
 
@@ -62,57 +61,59 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
-        let mindmapContent = "";
+
+        let accumulatedContent = "";
+        let currentLine = "";
 
         while (reader) {
           const { done, value } = await reader.read();
           if (done) break;
 
           const text = decoder.decode(value);
+
           const lines = text.split("\n");
 
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
-                console.log(`[${data.type}]`, data.message || "");
 
                 switch (data.type) {
                   case "start":
                     addLog(`开始处理: ${data.message}`);
                     break;
-                  case "progress":
-                    setProgress(data.progress || 0);
-                    break;
                   case "generating":
                     if (data.partial) {
-                      setGeneratingContent((prev) => {
-                        const newContent = prev + data.partial;
-                        if (data.partial.includes("\n")) {
-                          console.log(
-                            "更新节点数:",
-                            newContent.split("\n").length - 1
-                          );
+                      currentLine += data.partial;
+                      if (data.partial.includes("\n")) {
+                        accumulatedContent += currentLine;
+                        if (currentLine.startsWith("# ")) {
+                          console.log("根节点:", currentLine.trim());
                         }
-                        return newContent;
-                      });
+                        setGeneratingContent(accumulatedContent);
+                        currentLine = "";
+                      }
                     }
                     break;
                   case "complete":
                     if (data.data) {
+                      if (currentLine) {
+                        accumulatedContent += currentLine;
+                      }
                       setGeneratingContent(data.data);
                       message.success("思维导图生成成功");
                     }
                     setUploading(false);
                     break;
                   case "error":
+                    console.error("处理错误:", data.message);
                     addLog(`错误: ${data.message}`, "error");
                     message.error(data.message);
                     setUploading(false);
                     break;
                 }
               } catch (e) {
-                console.error("解析消息失败:", e, line);
+                console.error("解析 SSE 消息失败:", e, line);
               }
             }
           }
@@ -145,7 +146,6 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
 
         {uploading && (
           <div className="upload-status">
-            <Progress percent={Math.round(progress)} />
             <div className="logs">
               {logs.map((log, index) => (
                 <div key={index} className="log-item">
@@ -161,7 +161,9 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
         {generatingContent && (
           <MarkdownMindmap
             markdown={generatingContent}
-            key={generatingContent.length}
+            onRootNodeRendered={(rootContent) => {
+              console.log("渲染的根节点:", rootContent);
+            }}
           />
         )}
       </div>

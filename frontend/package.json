@@ -9,17 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@antv/g6": "^5.0.42",
+    "@antv/g": "^5.18.25",
+    "@antv/g6": "^4.8.24",
+    "@types/d3": "^7.4.3",
     "@types/dagre": "^0.7.52",
     "antd": "^5.12.5",
     "axios": "^1.6.3",
+    "d3": "^7.8.5",
     "dagre": "^0.8.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^8.0.7",
-    "react-router-dom": "^6.22.0",
-    "d3": "^7.8.5",
-    "@types/d3": "^7.4.3"
+    "react-router-dom": "^6.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
