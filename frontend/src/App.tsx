@@ -146,12 +146,10 @@ const App: React.FC = () => {
           <div className="main-content">
             <Tabs defaultActiveKey="upload" items={tabItems} />
             {mindmapData && (
-              <div className="mindmap-container">
-                <MarkdownMindmap
-                  markdown={mindmapData}
-                  key={mindmapData.length}
-                />
-              </div>
+              <MarkdownMindmap
+              markdown={mindmapData}
+              key={mindmapData.length}
+            />
             )}
           </div>
         </div>

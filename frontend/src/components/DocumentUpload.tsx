@@ -25,6 +25,8 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const [uploading, setUploading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [generatingContent, setGeneratingContent] = useState<string>("");
+  const [reasoningContent, setReasoningContent] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   const addLog = (log: string, type: "info" | "error" = "info") => {
     console.log(`[${type}] ${log}`);
@@ -34,6 +36,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
   const handleSSE = async (file: RcFile) => {
     setUploading(true);
     setGeneratingContent("");
+    setReasoningContent("");
     setLogs([]);
 
     const reader = new FileReader();
@@ -82,16 +85,23 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
                   case "start":
                     addLog(`开始处理: ${data.message}`);
                     break;
+                  case "reasoning":
+                    setReasoningContent(prev => prev + data.partial);
+                    break;
                   case "generating":
                     if (data.partial) {
-                      currentLine += data.partial;
-                      if (data.partial.includes("\n")) {
-                        accumulatedContent += currentLine;
-                        if (currentLine.startsWith("# ")) {
-                          console.log("根节点:", currentLine.trim());
+                      if (data.partial.includes("<think>")) {
+                        setReasoningContent(prev => prev + data.partial.replace("<think>", ""));
+                      } else {
+                        currentLine += data.partial;
+                        if (data.partial.includes("\n")) {
+                          accumulatedContent += currentLine;
+                          if (currentLine.startsWith("# ")) {
+                            console.log("根节点:", currentLine.trim());
+                          }
+                          setGeneratingContent(accumulatedContent);
+                          currentLine = "";
                         }
-                        setGeneratingContent(accumulatedContent);
-                        currentLine = "";
                       }
                     }
                     break;
@@ -101,6 +111,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
                         accumulatedContent += currentLine;
                       }
                       setGeneratingContent(data.data);
+                      setReasoningContent(data.reasoning);
                       message.success("思维导图生成成功");
                     }
                     setUploading(false);
@@ -157,15 +168,24 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
         )}
       </div>
 
-      <div className="mindmap-container">
-        {generatingContent && (
-          <MarkdownMindmap
-            markdown={generatingContent}
-            onRootNodeRendered={(rootContent) => {
-              console.log("渲染的根节点:", rootContent);
-            }}
-          />
+      <div className="flex flex-col gap-4">
+        {reasoningContent && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-medium mb-2">思维过程</h3>
+            <pre style={{
+              whiteSpace: 'pre-line',
+              lineHeight: '1.6',
+              wordBreak: 'break-word',
+              margin: '0',
+              padding: '8px'
+            }}>
+              {reasoningContent}
+            </pre>
+          </div>
         )}
+        <div className="mindmap-container">
+          <MarkdownMindmap markdown={generatingContent} />
+        </div>
       </div>
     </div>
   );

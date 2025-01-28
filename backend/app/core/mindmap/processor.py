@@ -417,11 +417,8 @@ class MindMapProcessor:
                 return chunk[:200] + "..."  # 降级处理
 
     async def process_document_stream(self, request: DocumentAnalysisRequest):
-        """处理文档并生成思维导图（流式响应）- 优化版本"""
+        """处理文档并生成思维导图（流式响应）"""
         start_time = time.time()
-        parse_time = 0
-        prep_time = 0
-        gen_time = 0
         
         try:
             # 发送开始消息
@@ -464,29 +461,59 @@ class MindMapProcessor:
             
             # 4. 使用流式响应，并累积结果
             full_result = []
+            reasoning_content = []  # 存储思维链内容
+            content = []  # 存储最终回答
             buffer = []
-            
-            async for chunk in self.llm.astream(
-                formatted_prompt,
-                temperature=float(settings.LLM_TEMPERATURE),
-                top_p=float(settings.LLM_TOP_P),
-                max_tokens=int(settings.LLM_MAX_TOKENS)
-            ):
-                content = str(chunk.content)
-                full_result.append(content)
-                buffer.append(content)
-                
-                # 每累积10个字符就发送一次
-                if len(''.join(buffer)) >= 10:
-                    yield self._create_sse_message("generating", {"partial": ''.join(buffer)})
-                    buffer = []
+            is_thinking = False  # 用于 DeepSeek 模型的思考标记
 
-            # 发送剩余的内容
-            if buffer:
-                yield self._create_sse_message("generating", {"partial": ''.join(buffer)})
+            messages = [
+                ("human", formatted_prompt)
+            ]
+
+            async for chunk in self.llm.astream(messages):
+                chunk_content = str(chunk.content)
+                
+                # 处理 OpenAI 的 reasoning_content
+                if hasattr(chunk, 'additional_kwargs') and 'reasoning_content' in chunk.additional_kwargs:
+                    reasoning_chunk = chunk.additional_kwargs['reasoning_content']
+                    if reasoning_chunk:
+                        reasoning_content.append(reasoning_chunk)
+                        yield self._create_sse_message("reasoning", {
+                            "partial": reasoning_chunk
+                        })
+                        continue
+                
+                # 处理 DeepSeek 的 <think> 标记
+                if "<think>" in chunk_content:
+                    is_thinking = True
+                    chunk_content = chunk_content.replace("<think>", "")
+                elif "</think>" in chunk_content:  # 使用 </think> 作为思考过程的结束标记
+                    is_thinking = False
+                    chunk_content = chunk_content.replace("</think>", "")
+                    if chunk_content.strip():  # 如果还有其他内容
+                        reasoning_content.append(chunk_content)
+                        yield self._create_sse_message("reasoning", {
+                            "partial": chunk_content
+                        })
+                    continue
+                
+                if is_thinking:
+                    reasoning_content.append(chunk_content)
+                    yield self._create_sse_message("reasoning", {
+                        "partial": chunk_content
+                    })
+                else:
+                    content.append(chunk_content)
+                    buffer.append(chunk_content)
+                    
+                    # 每累积10个字符就发送一次
+                    if len(''.join(buffer)) >= 10:
+                        yield self._create_sse_message("generating", {"partial": ''.join(buffer)})
+                        buffer = []
 
             # 合并完整结果
-            final_result = "".join(full_result)
+            final_result = "".join(content)
+            final_reasoning = "".join(reasoning_content)
             gen_time = float(time.time() - gen_start)
             logger.info(f"思维导图生成耗时: {gen_time:.2f}秒")
             yield self._create_sse_message("progress", {"message": f"思维导图生成完成, 耗时{gen_time:.2f}秒"})
@@ -498,6 +525,7 @@ class MindMapProcessor:
             # 6. 返回最终结果
             yield self._create_sse_message("complete", {
                 "data": final_result,
+                "reasoning": final_reasoning,  # 添加思维链内容
                 "timing": {
                     "parse": float(round(parse_time, 2)),
                     "preparation": float(round(prep_time, 2)),

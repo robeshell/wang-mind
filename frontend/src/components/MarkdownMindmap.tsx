@@ -33,7 +33,7 @@ const MarkdownMindmap: React.FC<MarkdownMindmapProps> = React.memo(({
   onRootNodeRendered
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const graphRef = useRef<any>(null);
+  const graphRef = useRef<G6.TreeGraph | null>(null);
 
   // 修改 transformData，使用固定的颜色分配
   const transformData = useCallback((data: MindMapNode, level = 0): MindMapNode => {
@@ -168,7 +168,7 @@ const MarkdownMindmap: React.FC<MarkdownMindmapProps> = React.memo(({
   }, [memoizedData]);
 
   return (
-    <div ref={containerRef} className="mindmap-container" style={{ width: '100%', height: '600px' }} />
+    <div ref={containerRef} style={{ width: '100%', height: 600 }} />
   );
 });
 
