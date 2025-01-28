@@ -1,17 +1,11 @@
-import React, { useState } from "react";
-import { MindMap } from "../components/MindMap";
+import React from "react";
 import DocumentUpload from "../components/DocumentUpload";
 import { TextInput } from "../components/TextInput";
-import type { MindMapNode } from "../api/mindmap";
 import { Card, Tabs, Typography } from "antd";
 
-const { TabPane } = Tabs;
 const { Title, Paragraph } = Typography;
 
 const MindMapPage: React.FC = () => {
-  const [mindmapData, setMindmapData] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
   return (
     <div className="mindmap-page">
       <div className="page-header">
@@ -33,27 +27,17 @@ const MindMapPage: React.FC = () => {
             {
               key: "text",
               label: "一句话",
-              children: (
-                <TextInput
-                  onMindMapGenerated={setMindmapData}
-                  onLoading={setLoading}
-                />
-              ),
+              children: <TextInput />,
             },
             {
               key: "pdf",
               label: "PDF/文档",
-              children: <DocumentUpload onMindMapGenerated={setMindmapData} />,
+              children: <DocumentUpload />,
             },
             {
               key: "article",
               label: "长文本",
-              children: (
-                <TextInput
-                  onMindMapGenerated={setMindmapData}
-                  onLoading={setLoading}
-                />
-              ),
+              children: <TextInput />,
             },
             {
               key: "website",
@@ -73,12 +57,6 @@ const MindMapPage: React.FC = () => {
           ]}
         />
       </Card>
-
-      {mindmapData && !loading && (
-        <Card className="mindmap-result">
-          <MindMap markdown={mindmapData} />
-        </Card>
-      )}
     </div>
   );
 };

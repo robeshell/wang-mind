@@ -585,4 +585,146 @@ class MindMapProcessor:
         yield {
             "type": "complete",
             "data": self.result
-        } 
+        }
+
+    async def process_text(self, request: MindMapRequest) -> dict:
+        """处理文本并生成思维导图"""
+        try:
+            # 1. 准备提示词
+            mindmap_prompt = PromptTemplate(
+                template=MindMapPrompts.get_mindmap_template(),
+                input_variables=["text"]
+            )
+            formatted_prompt = mindmap_prompt.format(text=request.content)
+            
+            # 2. 使用流式响应
+            full_result = []
+            reasoning_content = []
+            content = []
+            buffer = []
+            is_thinking = False
+
+            messages = [
+                ("human", formatted_prompt)
+            ]
+
+            async for chunk in self.llm.astream(messages):
+                chunk_content = str(chunk.content)
+                
+                # 处理 OpenAI 的 reasoning_content
+                if hasattr(chunk, 'additional_kwargs') and 'reasoning_content' in chunk.additional_kwargs:
+                    reasoning_chunk = chunk.additional_kwargs['reasoning_content']
+                    if reasoning_chunk:
+                        reasoning_content.append(reasoning_chunk)
+                        continue
+                
+                # 处理 DeepSeek 的 <think> 标记
+                if "<think>" in chunk_content:
+                    is_thinking = True
+                    chunk_content = chunk_content.replace("<think>", "")
+                elif "</think>" in chunk_content:
+                    is_thinking = False
+                    chunk_content = chunk_content.replace("</think>", "")
+                    if chunk_content.strip():
+                        reasoning_content.append(chunk_content)
+                    continue
+                
+                if is_thinking:
+                    reasoning_content.append(chunk_content)
+                else:
+                    content.append(chunk_content)
+
+            # 3. 合并结果
+            final_result = "".join(content)
+            final_reasoning = "".join(reasoning_content)
+
+            # 4. 返回结果
+            return {
+                "data": final_result,
+                "reasoning": final_reasoning
+            }
+
+        except Exception as e:
+            logger.error(f"处理失败: {str(e)}")
+            raise 
+
+    async def process_text_stream(self, request: MindMapRequest):
+        """处理文本并生成思维导图（流式响应）"""
+        try:
+            # 1. 发送开始消息
+            yield self._create_sse_message("start", {"message": "开始处理文本"})
+            
+            # 2. 准备提示词
+            mindmap_prompt = PromptTemplate(
+                template=MindMapPrompts.get_mindmap_template(),
+                input_variables=["text"]
+            )
+            formatted_prompt = mindmap_prompt.format(text=request.content)
+            
+            # 3. 使用流式响应
+            full_result = []
+            reasoning_content = []
+            content = []
+            buffer = []
+            is_thinking = False
+
+            messages = [
+                ("human", formatted_prompt)
+            ]
+
+            async for chunk in self.llm.astream(messages):
+                chunk_content = str(chunk.content)
+                
+                # 处理 OpenAI 的 reasoning_content
+                if hasattr(chunk, 'additional_kwargs') and 'reasoning_content' in chunk.additional_kwargs:
+                    reasoning_chunk = chunk.additional_kwargs['reasoning_content']
+                    if reasoning_chunk:
+                        reasoning_content.append(reasoning_chunk)
+                        yield self._create_sse_message("reasoning", {
+                            "partial": reasoning_chunk
+                        })
+                        continue
+                
+                # 处理 DeepSeek 的 <think> 标记
+                if "<think>" in chunk_content:
+                    is_thinking = True
+                    chunk_content = chunk_content.replace("<think>", "")
+                elif "</think>" in chunk_content:
+                    is_thinking = False
+                    chunk_content = chunk_content.replace("</think>", "")
+                    if chunk_content.strip():
+                        reasoning_content.append(chunk_content)
+                        yield self._create_sse_message("reasoning", {
+                            "partial": chunk_content
+                        })
+                    continue
+                
+                if is_thinking:
+                    reasoning_content.append(chunk_content)
+                    yield self._create_sse_message("reasoning", {
+                        "partial": chunk_content
+                    })
+                else:
+                    content.append(chunk_content)
+                    buffer.append(chunk_content)
+                    
+                    # 每累积10个字符就发送一次
+                    if len(''.join(buffer)) >= 10:
+                        yield self._create_sse_message("generating", {"partial": ''.join(buffer)})
+                        buffer = []
+
+            # 4. 合并完整结果
+            final_result = "".join(content)
+            final_reasoning = "".join(reasoning_content)
+            
+            # 5. 返回最终结果
+            yield self._create_sse_message("complete", {
+                "data": final_result,
+                "reasoning": final_reasoning
+            })
+
+        except Exception as e:
+            logger.error(f"处理失败: {str(e)}")
+            yield self._create_sse_message("error", {
+                "message": str(e)
+            }) 
